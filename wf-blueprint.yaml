@@ -1,0 +1,286 @@
+tosca_definitions_version: cloudify_dsl_1_0
+
+imports:  
+  - http://www.getcloudify.org/spec/cloudify/3.1rc1/types.yaml
+  - esc-type.yaml
+
+################################################################
+# e-Sc mapping
+# 
+# using TOSCA and Yaml
+# WF.
+################################################################
+inputs:
+
+    host_ip:
+        description:
+          The ip of the host the application will be deployed on
+
+    agent_user:
+        description:
+          User name used when SSH-ing into the started machine
+
+    agent_private_key_path:
+        description:
+          Path to a private key that resided on the management machine.
+          SSH-ing into agent machines will be done with this key.
+
+node_template:
+  vm1:
+    type: cloudify.nodes.Compute
+    properties:
+      ip: { get_input: host_ip }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+
+  javaruntime-1:
+    type: javaruntime
+    properties:
+      version: 1.7.0_45
+    interfaces:
+      create: scripts/java_install.sh
+      configure: scripts/java_configure.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm1
+
+  corelibrary-1:
+    type: corelibrary
+    interfaces:
+      create: scripts/core-lib.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm1
+
+  importFile-1:
+    type: importfile
+    properties:
+      block_name: ImportFile
+      block_category: IO
+      source: 
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/csvimport_deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm1
+
+  importFile-2:
+    type: importfile
+    properties:
+      block_name: ImportFile
+      block_category: IO
+      source: 
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/csvimport_deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm1
+
+  vm2:
+    type: cloudify.nodes.Compute
+    properties:
+      ip: { get_input: host_ip }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+
+  javaruntime-2:
+    type: javaruntime
+    properties:
+      version: 1.7.0_45
+    interfaces:
+      create: scripts/java_install.sh
+      configure: scripts/java_configure.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm2
+
+  corelibrary-2:
+    type: corelibrary
+    interfaces:
+      create: scripts/core-lib.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm2
+
+  eSC-commomTools:
+    type: eSC.CommonTools
+    interfaces:
+      create: scripts/commontool-lib.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm2
+
+  ClustralW-lib:
+    type: ClustalW_lib
+    interfaces:
+      create: scripts/clustralw-lib.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm2
+
+  MegaCC-lib:
+    type: MegaCC
+    interfaces:
+      create: scripts/megacc-lib.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm2
+
+  FileJoin:
+    type: filejoin
+    properties:
+      block_name: FileJoin
+      block_category: Manipulation
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/filejoin-deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm2
+      - type: DataWrapperLink
+        target: importFile-1
+      - type: FileWrapperLink
+        target: importFile-2
+
+  FilterDupl:
+    type: filterduplicates
+    properties:
+      block_name: FilterDulpicate
+      block_category: Manipulation
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/FilterDupl-deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm2
+      - type: DataWrapperLink
+        target: FieJoin
+
+  ClustralW:
+    type: clustralw
+    properties:
+      block_name: ClustralW
+      block_category: Manipulation
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/clustral-deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm2
+      - type: DataWrapperLink
+        target: FilterDupl
+
+  MegaNJ:
+    type: mega-nj
+    properties:
+      block_name: MegaNJ
+      block_category: Manipulation
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/mega-deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm2
+      - type: DataWrapperLink
+        target: ClustralW
+
+  vm3:
+    type: cloudify.nodes.Compute
+    properties:
+      ip: { get_input: host_ip }
+      cloudify_agent:
+        user: { get_input: agent_user }
+        key: { get_input: agent_private_key_path }
+
+  javaruntime-3:
+    type: javaruntime
+    properties:
+      version: 1.7.0_45
+    interfaces:
+      create: scripts/java_install.sh
+      configure: scripts/java_configure.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm3
+
+  corelibrary-3:
+    type: corelibrary
+    interfaces:
+      create: scripts/core-lib.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm3
+
+  ExportFile-1:
+    type: exportfile
+    properties:
+      block_name: ExportFile
+      block_category: IO
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/exportfile-deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm3
+      - type: FileWrapperLink
+        target: MegaNJ
+
+  ExportFile-2:
+    type: exportfile
+    properties:
+      block_name: ExportFile
+      block_category: IO
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/exportfile-deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm3
+      - type: DataWrapperLink
+        target: MegaNJ
+
+  ExportFile-3:
+    type: exportfile
+    properties:
+      block_name: ExportFile
+      block_category: IO
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/exportfile-deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm3
+      - type: DataWrapperLink
+        target: MegaNJ
+
+  CSVExport-1:
+    type: csvexport
+    properties:
+      block_name: CSVExport
+      block_category: IO
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/csvexport-deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm3
+      - type: FileWrapperLink
+        target: FilterDupl
+
+    CSVExport-2:
+    type: csvexport
+    properties:
+      block_name: CSVExport
+      block_category: IO
+    interfaces:
+      cloudify.interfaces.lifecycle:
+        create: scripts/csvexport-deploy.sh
+    relationships:
+      - type: cloudify.relationships.contained_in
+        target: vm3
+      - type: FileWrapperLink
+        target: FilterDupl
