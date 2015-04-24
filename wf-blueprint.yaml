@@ -12,9 +12,17 @@ imports:
 ################################################################
 inputs:
 
-    host_ip:
+    host1_ip:
         description:
-          The ip of the host the application will be deployed on
+          The ip of the host1 the application will be deployed on
+
+    host2_ip:
+        description:
+          The ip of the host2 the application will be deployed on
+
+    host3_ip:
+        description:
+          The ip of the host3 the application will be deployed on
 
     agent_user:
         description:
@@ -25,11 +33,19 @@ inputs:
           Path to a private key that resided on the management machine.
           SSH-ing into agent machines will be done with this key.
 
+    source1-file:
+        description:
+          The source file importFile-1 block
+
+    source2-file:
+        description:
+          The source file importFile-2 block
+
 node_template:
   vm1:
     type: cloudify.nodes.Compute
     properties:
-      ip: { get_input: host_ip }
+      ip: { get_input: host1_ip }
       cloudify_agent:
         user: { get_input: agent_user }
         key: { get_input: agent_private_key_path }
@@ -58,7 +74,7 @@ node_template:
     properties:
       block_name: ImportFile
       block_category: IO
-      source: 
+      source: { get_input: source1-file }
     interfaces:
       cloudify.interfaces.lifecycle:
         create: scripts/csvimport_deploy.sh
@@ -71,7 +87,7 @@ node_template:
     properties:
       block_name: ImportFile
       block_category: IO
-      source: 
+      source: { get_input: source2-file }
     interfaces:
       cloudify.interfaces.lifecycle:
         create: scripts/csvimport_deploy.sh
@@ -82,7 +98,7 @@ node_template:
   vm2:
     type: cloudify.nodes.Compute
     properties:
-      ip: { get_input: host_ip }
+      ip: { get_input: host2_ip }
       cloudify_agent:
         user: { get_input: agent_user }
         key: { get_input: agent_private_key_path }
@@ -191,7 +207,7 @@ node_template:
   vm3:
     type: cloudify.nodes.Compute
     properties:
-      ip: { get_input: host_ip }
+      ip: { get_input: host3_ip }
       cloudify_agent:
         user: { get_input: agent_user }
         key: { get_input: agent_private_key_path }
